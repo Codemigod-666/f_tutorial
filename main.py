@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query
 from typing import Annotated
+from models import Product
 
 app = FastAPI()
 
@@ -9,3 +10,30 @@ def greet():
     return "Hello World!!"
 
 
+products = [
+    Product(id=1, name="Phone", description="A smartphone", price=699.99, quantity=50),
+    Product(id=2, name="Laptop", description="A powerful laptop", price=999.99, quantity=30),
+    Product(id=3, name="Pen", description="A blue ink pen", price=1.99, quantity=100),
+    Product(id=4, name="Table", description="A wooden table", price=199.99, quantity=20),
+]
+
+# to get all products
+@app.get("/products/")
+def get_all_products():
+    return products
+
+
+# GET - particular product 
+@app.get("/products/{product_id}")
+def get_product_by_id(product_id: int):
+    for product in products:
+        if product.id == product_id:
+            return product
+    return {"error": "Product not found"}
+
+
+# POST - CREATE PRODUCT: 
+@app.post("/products/")
+def create_product(product: Product):
+    products.append(product)
+    return {"message": "Product created successfully", "product" : product}

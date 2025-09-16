@@ -1,2 +1,4 @@
 myvenv/
 myvenv/*
+frontend/src/*
+frontend/*
