@@ -4,7 +4,7 @@ import "./App.css";
 import TaglineSection from "./TaglineSection";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "https://f-tutorial-ohdttig5z-rishi-khandagles-projects.vercel.app/",
 });
 
 function App() {
