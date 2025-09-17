@@ -1,6 +1,4 @@
-from statistics import quantiles
 from sqlalchemy import Column, Integer, String, Float
-from sqlalchemy.sql.base import _DefaultDescriptionTuple
 from db.database import Base
 
 class Product(Base):
