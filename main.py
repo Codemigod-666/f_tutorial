@@ -1,16 +1,23 @@
 from math import e
-from fastapi import FastAPI, Query, responses
-from typing import Annotated
-from db.database import get_supabase_client
+from fastapi import Depends, FastAPI, HTTPException, Query, responses
+from sqlalchemy.orm import Session
+# from typing import Annotated
+from db.database import get_db, engine
+# from db.database import get_supabase_client
 from models import Product
 from fastapi.middleware.cors import CORSMiddleware
+import models
+import schemas
 
 app = FastAPI()
-client = get_supabase_client()
-if client is not None:
-    print("Supabase database connection successful")
-else:
-    print("Supabase database connection FAILED")
+
+# Create DB tables
+models.Base.metadata.create_all(bind=engine)
+
+# if client is not None:
+#     print("Supabase database connection successful")
+# else:
+#     print("Supabase database connection FAILED")
 
 
 app.add_middleware(
@@ -25,83 +32,54 @@ app.add_middleware(
 def greet():
     return "Hello World!!"
 
-
-# products = [
-#     Product(id=1, name="Phone", description="A smartphone", price=699.99, quantity=50),
-#     Product(id=2, name="Laptop", description="A powerful laptop", price=999.99, quantity=30),
-#     Product(id=3, name="Pen", description="A blue ink pen", price=1.99, quantity=100),
-#     Product(id=4, name="Table", description="A wooden table", price=199.99, quantity=20),
-# ]
-
-# to get all products
-@app.get("/products/")
-def get_all_products():
-    response = client.table("Products").select("*").execute()
-    return response.data
+# ✅ Get all products 
+@app.get("/products/", response_model=list[schemas.ProductResponse])
+def get_products(db: Session = Depends(get_db)):
+    return db.query(models.Product).all()
 
 
-# GET - particular product 
-# @app.get("/products/{product_id}")
-# def get_product_by_id(product_id: int):
-#     for product in products:
-#         if product.id == product_id:
-#             return product
-#     return {"error": "Product not found"}
+# ✅ Create product
+@app.post("/products/", response_model=schemas.ProductResponse)
+def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    new_product = models.Product(**product.dict())
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+    return new_product
 
 
-# # POST - CREATE PRODUCT: 
-@app.post("/products/")
-def create_product(product: Product):
-    client = get_supabase_client()
-
-    try:
-        response = client.table("Products").insert(product.dict()).execute()
-        return {
-            "message": "Product created successfully",
-            "product": response.data
-        }
-    except Exception as e:
-        return {"error": str(e)}
+# ✅ Get product by ID
+@app.get("/products/{product_id}", response_model=schemas.ProductResponse)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
 
 
-# # PUT - update prodcuts 
-@app.put("/products/{product_id}")
-def update_products(product_id: int, product: Product):
-    client = get_supabase_client()
 
-    try: 
-        response = {
-            client.table("Products")
-            .update(product.dict())
-            .eq("id", product_id)
-            .execute()
-        }
+# ✅ Update product
+@app.put("/products/{product_id}", response_model=schemas.ProductResponse)
+def update_product(product_id: int, product: schemas.ProductUpdate, db: Session = Depends(get_db)):
+    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-        return {
-            "message": "Peoduct updated successfully",
-            "product": response.data
-        }
-    except Exception as e: 
-        return {"error": str(e)}
+    for key, value in product.dict().items():
+        setattr(db_product, key, value)
+
+    db.commit()
+    db.refresh(db_product)
+    return db_product
 
 
-# # DELETE - delete product 
+# ✅ Delete product
 @app.delete("/products/{product_id}")
-def delete_product(product_id: int):
-    client = get_supabase_client()
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-    try:
-        response = (
-            client.table("Products")
-            .delete()
-            .eq("id", product_id)
-            .execute()
-        )
-        return {
-            "message": "Product deleted successfully",
-            "product": response.data
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-
+    db.delete(db_product)
+    db.commit()
+    return {"message": "Product deleted successfully"}
